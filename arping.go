@@ -60,12 +60,12 @@ package arping
 
 import (
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net"
 	"os"
 	"time"
-	"fmt"
 )
 
 var (
@@ -109,7 +109,7 @@ func PingOverIface(dstIP net.IP, iface net.Interface) (net.HardwareAddr, time.Du
 	}
 
 	srcMac := iface.HardwareAddr
-	srcIP, err := findIPInNetworkFromIface(dstIP, iface)
+	srcIP, err := FindIPInNetworkFromIface(dstIP, iface)
 	if err != nil {
 		return nil, 0, err
 	}

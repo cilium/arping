@@ -6,7 +6,7 @@ import (
 	"net"
 )
 
-func findIPInNetworkFromIface(dstIP net.IP, iface net.Interface) (net.IP, error) {
+func FindIPInNetworkFromIface(dstIP net.IP, iface net.Interface) (net.IP, error) {
 	addrs, err := iface.Addrs()
 
 	if err != nil {
@@ -35,7 +35,7 @@ func findUsableInterfaceForNetwork(dstIP net.IP) (*net.Interface, error) {
 	}
 
 	hasAddressInNetwork := func(iface net.Interface) bool {
-		if _, err := findIPInNetworkFromIface(dstIP, iface); err != nil {
+		if _, err := FindIPInNetworkFromIface(dstIP, iface); err != nil {
 			return false
 		}
 		return true
