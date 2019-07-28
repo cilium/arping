@@ -1,1 +1,1 @@
-module github.com/j-keck/arping
+module github.com/cilium/arping
