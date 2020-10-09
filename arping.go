@@ -117,10 +117,11 @@ func PingOverIface(dstIP net.IP, iface net.Interface) (net.HardwareAddr, time.Du
 	broadcastMac := []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 	request := newArpRequest(srcMac, srcIP, broadcastMac, dstIP)
 
-	if err := initialize(iface); err != nil {
+	req, err := initialize(iface)
+	if err != nil {
 		return nil, 0, err
 	}
-	defer deinitialize()
+	defer req.deinitialize()
 
 	type PingResult struct {
 		mac      net.HardwareAddr
@@ -132,12 +133,12 @@ func PingOverIface(dstIP net.IP, iface net.Interface) (net.HardwareAddr, time.Du
 	go func() {
 		// send arp request
 		verboseLog.Printf("arping '%s' over interface: '%s' with address: '%s'\n", dstIP, iface.Name, srcIP)
-		if sendTime, err := send(request); err != nil {
+		if sendTime, err := req.send(request); err != nil {
 			pingResultChan <- PingResult{nil, 0, err}
 		} else {
 			for {
 				// receive arp response
-				response, receiveTime, err := receive()
+				response, receiveTime, err := req.receive()
 
 				if err != nil {
 					pingResultChan <- PingResult{nil, 0, err}
@@ -162,7 +163,7 @@ func PingOverIface(dstIP net.IP, iface net.Interface) (net.HardwareAddr, time.Du
 	case pingResult := <-pingResultChan:
 		return pingResult.mac, pingResult.duration, pingResult.err
 	case <-time.After(timeout):
-		deinitialize()
+		req.deinitialize()
 		return nil, 0, ErrTimeout
 	}
 }
@@ -203,12 +204,13 @@ func GratuitousArpOverIface(srcIP net.IP, iface net.Interface) error {
 	broadcastMac := []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 	request := newArpRequest(srcMac, srcIP, broadcastMac, srcIP)
 
-	if err := initialize(iface); err != nil {
+	req, err := initialize(iface)
+	if err != nil {
 		return err
 	}
-	defer deinitialize()
+	defer req.deinitialize()
 	verboseLog.Printf("gratuitous arp over interface: '%s' with address: '%s'\n", iface.Name, srcIP)
-	_, err := send(request)
+	_, err = req.send(request)
 	return err
 }
 
