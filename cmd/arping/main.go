@@ -24,10 +24,11 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/j-keck/arping"
 	"net"
 	"os"
 	"time"
+
+	"github.com/cilium/arping"
 )
 
 var (
