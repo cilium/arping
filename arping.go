@@ -59,6 +59,7 @@
 package arping
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -128,42 +129,54 @@ func PingOverIface(dstIP net.IP, iface net.Interface) (net.HardwareAddr, time.Du
 		duration time.Duration
 		err      error
 	}
-	pingResultChan := make(chan PingResult, 1)
+	pingResultChan := make(chan PingResult)
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
 
 	go func() {
 		// send arp request
 		verboseLog.Printf("arping '%s' over interface: '%s' with address: '%s'\n", dstIP, iface.Name, srcIP)
-		if sendTime, err := req.send(request); err != nil {
-			pingResultChan <- PingResult{nil, 0, err}
-		} else {
-			for {
-				// receive arp response
-				response, receiveTime, err := req.receive()
-
-				if err != nil {
-					pingResultChan <- PingResult{nil, 0, err}
-					return
-				}
-
-				if response.IsResponseOf(request) {
-					duration := receiveTime.Sub(sendTime)
-					verboseLog.Printf("process received arp: srcIP: '%s', srcMac: '%s'\n",
-						response.SenderIP(), response.SenderMac())
-					pingResultChan <- PingResult{response.SenderMac(), duration, err}
-					return
-				}
-
-				verboseLog.Printf("ignore received arp: srcIP: '%s', srcMac: '%s'\n",
-					response.SenderIP(), response.SenderMac())
+		sendTime, err := req.send(request)
+		if err != nil {
+			select {
+			case pingResultChan <- PingResult{nil, 0, err}:
+			case <-ctx.Done():
 			}
+			return
+		}
+		for {
+			// receive arp response
+			response, receiveTime, err := req.receive()
+
+			if err != nil {
+				select {
+				case pingResultChan <- PingResult{nil, 0, err}:
+				case <-ctx.Done():
+				}
+				return
+			}
+
+			if response.IsResponseOf(request) {
+				duration := receiveTime.Sub(sendTime)
+				verboseLog.Printf("process received arp: srcIP: '%s', srcMac: '%s'\n",
+					response.SenderIP(), response.SenderMac())
+				select {
+				case pingResultChan <- PingResult{response.SenderMac(), duration, err}:
+				case <-ctx.Done():
+				}
+				return
+			}
+
+			verboseLog.Printf("ignore received arp: srcIP: '%s', srcMac: '%s'\n",
+				response.SenderIP(), response.SenderMac())
 		}
 	}()
 
 	select {
 	case pingResult := <-pingResultChan:
 		return pingResult.mac, pingResult.duration, pingResult.err
-	case <-time.After(timeout):
-		req.deinitialize()
+	case <-ctx.Done():
 		return nil, 0, ErrTimeout
 	}
 }
