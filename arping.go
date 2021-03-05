@@ -88,12 +88,12 @@ type PingResult struct {
 }
 
 // PingOverIface sends an arp ping over interface 'iface' to 'dstIP' from 'srcIP'
-func PingOverIface(dstIP net.IP, iface net.Interface, srcIP net.IP) (hwAddr net.HardwareAddr, duration time.Duration, err error) {
+func PingOverIface(dstIP net.IP, iface netlink.Link, srcIP net.IP) (hwAddr net.HardwareAddr, duration time.Duration, err error) {
 	if err := validateIP(dstIP); err != nil {
 		return nil, 0, err
 	}
 
-	srcMac := iface.HardwareAddr
+	srcMac := iface.Attrs().HardwareAddr
 	broadcastMac := []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 	request := newArpRequest(srcMac, srcIP, broadcastMac, dstIP)
 
@@ -113,7 +113,7 @@ func PingOverIface(dstIP net.IP, iface net.Interface, srcIP net.IP) (hwAddr net.
 	return
 }
 
-func ping(req *requester, request arpDatagram, dstIP net.IP, iface net.Interface, srcIP net.IP) (net.HardwareAddr, time.Duration, error) {
+func ping(req *requester, request arpDatagram, dstIP net.IP, iface netlink.Link, srcIP net.IP) (net.HardwareAddr, time.Duration, error) {
 	pingResultChan := make(chan PingResult)
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -121,7 +121,7 @@ func ping(req *requester, request arpDatagram, dstIP net.IP, iface net.Interface
 
 	go func() {
 		// send arp request
-		verboseLog.Printf("arping '%s' over interface: '%s' with address: '%s'\n", dstIP, iface.Name, srcIP)
+		verboseLog.Printf("arping '%s' over interface: '%d' with address: '%s'\n", dstIP, iface.Attrs().Index, srcIP)
 		sendTime, err := req.send(request)
 		if err != nil {
 			select {
